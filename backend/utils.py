@@ -1,17 +1,26 @@
+import logging
 from langchain_core.messages import AIMessage, HumanMessage
+
+logger = logging.getLogger(__name__)
 
 
 def parse_messages(state, num_messages=None):
+    logger.debug(f"parse_messages called with num_messages={num_messages}")
+    
     # Check if messages exist and are in a list
     if "messages" not in state or not state["messages"]:
+        logger.warning("No messages found in state")
         return ""
 
     messages = state["messages"]
+    logger.debug(f"Found {len(messages)} total messages in state")
 
     # If num_messages is specified, get only the most recent n messages
     if num_messages is not None and num_messages > 0:
+        original_count = len(messages)
         # Simply take the n most recent messages
         messages = messages[-min(num_messages, len(messages)) :]
+        logger.debug(f"Limited to {len(messages)} most recent messages (from {original_count})")
 
     # Find the last human message index (simplest approach)
     last_human_index = -1
@@ -26,7 +35,11 @@ def parse_messages(state, num_messages=None):
             )
         ):
             last_human_index = i
+            logger.debug(f"Found last human message at index {i}")
             break
+    
+    if last_human_index == -1:
+        logger.warning("No human message found in the conversation")
 
     # Process all messages
     formatted_messages = []
@@ -40,8 +53,10 @@ def parse_messages(state, num_messages=None):
             role = "AI"
         else:
             role = "Unknown"
+            logger.debug(f"Unknown message type at index {i}: {type(msg)}")
 
         content = msg.content if hasattr(msg, "content") else str(msg)
+        logger.debug(f"Message {i}: {role} - {len(content)} characters")
 
         # Format the message
         if i == last_human_index:
@@ -51,7 +66,9 @@ def parse_messages(state, num_messages=None):
         else:
             formatted_messages.append(f"{role}: {content}")
 
-    return "\n".join(formatted_messages)
+    result = "\n".join(formatted_messages)
+    logger.debug(f"parse_messages returning {len(result)} characters")
+    return result
 
 
 def tavily_results_to_documents(tavily_response):
